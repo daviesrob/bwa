@@ -6,7 +6,8 @@
 #include "bwt.h"
 #include "kvec.h"
 #include "kseq.h"
-KSEQ_INIT(gzFile, gzread)
+#include "utils.h"
+KSEQ_INIT(gzFile, err_gzread)
 
 extern unsigned char nst_nt4_table[256];
 
@@ -20,11 +21,11 @@ typedef struct {
 smem_i *smem_iter_init(const bwt_t *bwt)
 {
 	smem_i *iter;
-	iter = calloc(1, sizeof(smem_i));
+	iter = xcalloc(1, sizeof(smem_i));
 	iter->bwt = bwt;
-	iter->tmpvec[0] = calloc(1, sizeof(bwtintv_v));
-	iter->tmpvec[1] = calloc(1, sizeof(bwtintv_v));
-	iter->matches   = calloc(1, sizeof(bwtintv_v));
+	iter->tmpvec[0] = xcalloc(1, sizeof(bwtintv_v));
+	iter->tmpvec[1] = xcalloc(1, sizeof(bwtintv_v));
+	iter->matches   = xcalloc(1, sizeof(bwtintv_v));
 	return iter;
 }
 
@@ -78,7 +79,7 @@ int main_fastmap(int argc, char *argv[])
 	fp = gzopen(argv[optind + 1], "r");
 	seq = kseq_init(fp);
 	{ // load the packed sequences, BWT and SA
-		char *tmp = calloc(strlen(argv[optind]) + 5, 1);
+		char *tmp = xcalloc(strlen(argv[optind]) + 5, 1);
 		strcat(strcpy(tmp, argv[optind]), ".bwt");
 		bwt = bwt_restore_bwt(tmp);
 		strcat(strcpy(tmp, argv[optind]), ".sa");
@@ -88,7 +89,7 @@ int main_fastmap(int argc, char *argv[])
 	}
 	iter = smem_iter_init(bwt);
 	while (kseq_read(seq) >= 0) {
-		printf("SQ\t%s\t%ld", seq->name.s, seq->seq.l);
+		err_printf("SQ\t%s\t%ld", seq->name.s, seq->seq.l);
 		if (print_seq) {
 			putchar('\t');
 			puts(seq->seq.s);
@@ -100,7 +101,7 @@ int main_fastmap(int argc, char *argv[])
 			for (i = 0; i < iter->matches->n; ++i) {
 				bwtintv_t *p = &iter->matches->a[i];
 				if ((uint32_t)p->info - (p->info>>32) < min_len) continue;
-				printf("EM\t%d\t%d\t%ld", (uint32_t)(p->info>>32), (uint32_t)p->info, (long)p->x[2]);
+				err_printf("EM\t%d\t%d\t%ld", (uint32_t)(p->info>>32), (uint32_t)p->info, (long)p->x[2]);
 				if (p->x[2] <= min_iwidth) {
 					for (k = 0; k < p->x[2]; ++k) {
 						bwtint_t pos;
@@ -109,7 +110,7 @@ int main_fastmap(int argc, char *argv[])
 						pos = bns_depos(bns, bwt_sa(bwt, p->x[0] + k), &is_rev);
 						if (is_rev) pos -= len - 1;
 						bns_cnt_ambi(bns, pos, len, &ref_id);
-						printf("\t%s:%c%ld", bns->anns[ref_id].name, "+-"[is_rev], (long)(pos - bns->anns[ref_id].offset) + 1);
+						err_printf("\t%s:%c%ld", bns->anns[ref_id].name, "+-"[is_rev], (long)(pos - bns->anns[ref_id].offset) + 1);
 					}
 				} else fputs("\t*", stdout);
 				putchar('\n');

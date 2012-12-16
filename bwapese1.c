@@ -78,7 +78,7 @@ void bwa_rg_tpx(int iidx, const bntseq_t *bns, int n_seqs1, int n_seqs2,
 	}
 #endif
 	// generate MD tag
-	str = (kstring_t*)calloc(1, sizeof(kstring_t));
+	str = (kstring_t*)xcalloc(1, sizeof(kstring_t));
 
 	for (i = n_seqs1; i < n_seqs2; ++i) {
 		bwa_seq_t *s = seqs + i;

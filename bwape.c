@@ -66,7 +66,7 @@ static clock_t read_aln_clocks = 0;
 pe_opt_t *bwa_init_pe_opt()
 {
 	pe_opt_t *po;
-	po = (pe_opt_t*)calloc(1, sizeof(pe_opt_t));
+	po = (pe_opt_t*)xcalloc(1, sizeof(pe_opt_t));
 	po->max_isize = 500;
 	po->force_isize = 0;
 	po->max_occ = 100000;
@@ -100,7 +100,7 @@ static int infer_isize(int n_seqs, bwa_seq_t *seqs[2], isize_info_t *ii, double 
 
 	ii->avg = ii->std = -1.0;
 	ii->low = ii->high = ii->high_bayesian = 0;
-	isizes = (uint64_t*)calloc(n_seqs, 8);
+	isizes = (uint64_t*)xcalloc(n_seqs, 8);
 	for (i = 0, tot = 0; i != n_seqs; ++i) {
 		bwa_seq_t *p[2];
 		p[0] = seqs[0] + i; p[1] = seqs[1] + i;
@@ -389,10 +389,10 @@ bwa_cigar_t *bwa_sw_core(bwtint_t l_pac, const ubyte_t *pacseq, int len, const u
 	if ((float)x/len >= 0.25 || len - x < SW_MIN_MATCH_LEN) return 0;
 
 	// get reference subsequence
-	ref_seq = (ubyte_t*)calloc(reglen, 1);
+	ref_seq = (ubyte_t*)xcalloc(reglen, 1);
 	for (k = *beg, l = 0; l < reglen && k < l_pac; ++k)
 		ref_seq[l++] = pacseq[k>>2] >> ((~k&3)<<1) & 3;
-	path = (path_t*)calloc(l+len, sizeof(path_t));
+	path = (path_t*)xcalloc(l+len, sizeof(path_t));
 
 	// do alignment
 	ret = aln_local_core(ref_seq, l, (ubyte_t*)seq, len, &ap, path, &path_len, 1, &subo);
@@ -421,7 +421,7 @@ bwa_cigar_t *bwa_sw_core(bwtint_t l_pac, const ubyte_t *pacseq, int len, const u
 		*beg += (p->i? p->i : 1) - 1;
 		start = (p->j? p->j : 1) - 1;
 		end = path->j;
-		cigar = (bwa_cigar_t*)realloc(cigar, sizeof(bwa_cigar_t) * (*n_cigar + 2));
+		cigar = (bwa_cigar_t*)xrealloc(cigar, sizeof(bwa_cigar_t) * (*n_cigar + 2));
 		if (start) {
 			memmove(cigar + 1, cigar, sizeof(bwa_cigar_t) * (*n_cigar));
 			cigar[0] = __cigar_create(3, start);
@@ -491,9 +491,9 @@ ubyte_t *bwa_paired_sw(const bntseq_t *bns, const ubyte_t *_pacseq, int n_seqs, 
 
 	// load reference sequence
 	if (_pacseq == 0) {
-		pacseq = (ubyte_t*)calloc(bns->l_pac/4+1, 1);
-		rewind(bns->fp_pac);
-		fread(pacseq, 1, bns->l_pac/4+1, bns->fp_pac);
+		pacseq = (ubyte_t*)xcalloc(bns->l_pac/4+1, 1);
+		err_rewind(bns->fp_pac);
+		err_fread_noeof(pacseq, 1, bns->l_pac/4+1, bns->fp_pac);
 	} else pacseq = (ubyte_t*)_pacseq;
 	if (!popt->is_sw || ii->avg < 0.0) return pacseq;
 
@@ -635,10 +635,10 @@ void bwa_sai2sam_pe_core(const char *prefix, char *const fn_sa[2], char *const f
 
 	last_ii.avg = -1.0;
 
-	fread(&opt, sizeof(gap_opt_t), 1, fp_sa[0]);
+	err_fread_noeof(&opt, sizeof(gap_opt_t), 1, fp_sa[0]);
 	ks[0] = bwa_open_reads(opt.mode, fn_fa[0]);
 	opt0 = opt;
-	fread(&opt, sizeof(gap_opt_t), 1, fp_sa[1]); // overwritten!
+	err_fread_noeof(&opt, sizeof(gap_opt_t), 1, fp_sa[1]); // overwritten!
 	ks[1] = bwa_open_reads(opt.mode, fn_fa[1]);
 	if (!(opt.mode & BWA_MODE_COMPREAD)) {
 		popt->type = BWA_PET_SOLID;
@@ -647,9 +647,9 @@ void bwa_sai2sam_pe_core(const char *prefix, char *const fn_sa[2], char *const f
 		if (popt->is_preload) {
 			strcpy(str, prefix); strcat(str, ".bwt");  bwt = bwt_restore_bwt(str);
 			strcpy(str, prefix); strcat(str, ".sa"); bwt_restore_sa(str, bwt);
-			pac = (ubyte_t*)calloc(bns->l_pac/4+1, 1);
-			rewind(bns->fp_pac);
-			fread(pac, 1, bns->l_pac/4+1, bns->fp_pac);
+			pac = (ubyte_t*)xcalloc(bns->l_pac/4+1, 1);
+			err_rewind(bns->fp_pac);
+			err_fread_noeof(pac, 1, bns->l_pac/4+1, bns->fp_pac);
 		}
 	}
 
@@ -682,9 +682,9 @@ void bwa_sai2sam_pe_core(const char *prefix, char *const fn_sa[2], char *const f
         alnbuf[2][1] = NULL;
 
         for(i=0; i<num_sampe_threads; i++){
-                d[0][i] = (pe_data_t*)calloc(1, sizeof(pe_data_t));
-                d[1][i] = (pe_data_t*)calloc(1, sizeof(pe_data_t));
-                d[2][i] = (pe_data_t*)calloc(1, sizeof(pe_data_t));
+                d[0][i] = (pe_data_t*)xcalloc(1, sizeof(pe_data_t));
+                d[1][i] = (pe_data_t*)xcalloc(1, sizeof(pe_data_t));
+                d[2][i] = (pe_data_t*)xcalloc(1, sizeof(pe_data_t));
         }
 
         t = tio = clock();
@@ -833,7 +833,7 @@ void bwa_sai2sam_pe_core(const char *prefix, char *const fn_sa[2], char *const f
         if (ntbns) bns_destroy(ntbns);
         for (i = 0; i < 2; ++i) {
                 bwa_seq_close(ks[i]);
-                fclose(fp_sa[i]);
+                err_fclose(fp_sa[i]);
         }
 
         // ---------------

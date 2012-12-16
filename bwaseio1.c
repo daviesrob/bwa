@@ -47,14 +47,14 @@ static void thr_bwa_read_seq1_tpx(long n_needed)
 		bwa_seq_t *p = *seq1_addr + i;
 		int n_aln;
 
-		fread(&n_aln, 4, 1, fp_sa_addr);
+		err_fread_noeof(&n_aln, 4, 1, fp_sa_addr);
 
 		if (n_aln > m_aln_copy) {
 			m_aln_copy = n_aln;
-			*aln_addr = (bwt_aln1_t*)realloc(*aln_addr, sizeof(bwt_aln1_t) * m_aln_copy);
+			*aln_addr = (bwt_aln1_t*)xrealloc(*aln_addr, sizeof(bwt_aln1_t) * m_aln_copy);
 		}
 
-		fread(*aln_addr, sizeof(bwt_aln1_t), n_aln, fp_sa_addr);
+		err_fread_noeof(*aln_addr, sizeof(bwt_aln1_t), n_aln, fp_sa_addr);
 
 		bwa_aln2seq_core(n_aln, *aln_addr, p, 1, n_occ_copy);
 	}

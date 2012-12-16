@@ -225,7 +225,7 @@ int bwa_pe_tpx(int iidx, const bntseq_t *bns, const bwt_t *bwt, int n_seqs1, int
 						if (ret) { // not in the hash table; ret must equal 1 as we never remove elements
 							poslist_t *z = &kh_val(g_hash[iidx], iter);
 							z->n = r->l - r->k + 1;
-							z->a = (bwtint_t*)malloc(sizeof(bwtint_t) * z->n);
+							z->a = (bwtint_t*)xmalloc(sizeof(bwtint_t) * z->n);
 							for (l = r->k; l <= r->l; ++l) {
 								int strand;
 								z->a[l - r->k] = bwa_sa2pos(bns, bwt, l, p[j]->len, &strand)<<1;

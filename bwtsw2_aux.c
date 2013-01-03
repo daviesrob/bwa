@@ -811,9 +811,9 @@ void bsw2_aln(const bsw2opt_t *opt, const bntseq_t *bns, bwt_t * const target, c
 	free(pac);
 	free(_seq->seq); free(_seq);
 	kseq_destroy(ks);
-	gzclose(fp);
+	err_gzclose(fp);
 	if (fn2) {
 		kseq_destroy(ks2);
-		gzclose(fp2);
+		err_gzclose(fp2);
 	}
 }

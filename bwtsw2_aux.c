@@ -50,7 +50,8 @@ bsw2opt_t *bsw2_init_opt()
 	bsw2opt_t *o = (bsw2opt_t*)calloc(1, sizeof(bsw2opt_t));
 	o->a = 1; o->b = 3; o->q = 5; o->r = 2; o->t = 30;
 	o->bw = 50;
-	o->z = 1; o->is = 3; o->t_seeds = 5; o->hard_clip = 0;
+	o->max_ins = 20000;
+	o->z = 1; o->is = 3; o->t_seeds = 5; o->hard_clip = 0; o->skip_sw = 0;
 	o->mask_level = 0.50f; o->coef = 5.5f;
 	o->qr = o->q + o->r; o->n_threads = 1; o->chunk_size = 10000000;
 	return o;
@@ -165,7 +166,7 @@ void bsw2_extend_rght(const bsw2opt_t *opt, bwtsw2_t *b, uint8_t *query, int lq,
 }
 
 /* generate CIGAR array(s) in b->cigar[] */
-static void gen_cigar(const bsw2opt_t *opt, int lq, uint8_t *seq[2], const uint8_t *pac, bwtsw2_t *b)
+static void gen_cigar(const bsw2opt_t *opt, int lq, uint8_t *seq[2], const uint8_t *pac, bwtsw2_t *b, const char *name)
 {
 	uint8_t *target;
 	int i, matrix[25];
@@ -194,6 +195,16 @@ static void gen_cigar(const bsw2opt_t *opt, int lq, uint8_t *seq[2], const uint8
 		// score = aln_global_core(target, p->len, query, end - beg, &par, path, &path_len);
 		(void)aln_global_core(target, p->len, query, end - beg, &par, path, &path_len);
 		q->cigar = aln_path2cigar32(path, path_len, &q->n_cigar);
+#if 0
+		if (name && score != p->G) { // debugging only
+			int j, glen = 0;
+			for (j = 0; j < q->n_cigar; ++j)
+				if ((q->cigar[j]&0xf) == 1 || (q->cigar[j]&0xf) == 2)
+					glen += q->cigar[j]>>4;
+			fprintf(stderr, "[E::%s] %s - unequal score: %d != %d; (qlen, aqlen, arlen, glen, bw) = (%d, %d, %d, %d, %d)\n",
+					__func__, name, score, p->G, lq, end - beg, p->len, glen, opt->bw);
+		}
+#endif
 		if (beg != 0 || end < lq) { // write soft clipping
 			q->cigar = realloc(q->cigar, 4 * (q->n_cigar + 2));
 			if (beg != 0) {
@@ -415,7 +426,7 @@ static int compute_nm(bsw2hit_t *p, int n_cigar, const uint32_t *cigar, const ui
 	return n_mm + n_gap;
 }
 
-static void write_aux(const bsw2opt_t *opt, const bntseq_t *bns, int qlen, uint8_t *seq[2], const uint8_t *pac, bwtsw2_t *b)
+static void write_aux(const bsw2opt_t *opt, const bntseq_t *bns, int qlen, uint8_t *seq[2], const uint8_t *pac, bwtsw2_t *b, const char *name)
 {
 	int i;
 	// allocate for b->aux
@@ -426,7 +437,7 @@ static void write_aux(const bsw2opt_t *opt, const bntseq_t *bns, int qlen, uint8
 	}
 	b->aux = calloc(b->n, sizeof(bsw2aux_t));
 	// generate CIGAR
-	gen_cigar(opt, qlen, seq, pac, b);
+	gen_cigar(opt, qlen, seq, pac, b, name);
 	// fix CIGAR, generate mapQ, and write chromosomal position
 	for (i = 0; i < b->n; ++i) {
 		bsw2hit_t *p = &b->hits[i];
@@ -556,12 +567,26 @@ static void print_hits(const bntseq_t *bns, const bsw2opt_t *opt, bsw2seq1_t *ks
 	free(ks->name); ks->name = 0;
 }
 
+static void update_opt(bsw2opt_t *dst, const bsw2opt_t *src, int qlen)
+{
+	double ll = log(qlen);
+	int i, k;
+	*dst = *src;
+	if (dst->t < ll * dst->coef) dst->t = (int)(ll * dst->coef + .499);
+	// set band width: the query length sets a boundary on the maximum band width
+	k = (qlen * dst->a - 2 * dst->q) / (2 * dst->r + dst->a);
+	i = (qlen * dst->a - dst->a - dst->t) / dst->r;
+	if (k > i) k = i;
+	if (k < 1) k = 1; // I do not know if k==0 causes troubles
+	dst->bw = src->bw < k? src->bw : k;
+}
+
 /* Core routine to align reads in _seq. It is separated from
  * process_seqs() to realize multi-threading */ 
 static void bsw2_aln_core(bsw2seq_t *_seq, const bsw2opt_t *_opt, const bntseq_t *bns, uint8_t *pac, const bwt_t *target, int is_pe)
 {
 	int x;
-	bsw2opt_t opt = *_opt;
+	bsw2opt_t opt;
 	bsw2global_t *pool = bsw2_global_init();
 	bwtsw2_t **buf;
 	buf = calloc(_seq->n, sizeof(void*));
@@ -571,21 +596,12 @@ static void bsw2_aln_core(bsw2seq_t *_seq, const bsw2opt_t *_opt, const bntseq_t
 		int i, l, k;
 		bwtsw2_t *b[2];
 		l = p->l;
-		// set opt->t
-		opt.t = _opt->t;
-		if (opt.t < log(l) * opt.coef) opt.t = (int)(log(l) * opt.coef + .499);
+		update_opt(&opt, _opt, p->l);
 		if (pool->max_l < l) { // then enlarge working space for aln_extend_core()
 			int tmp = ((l + 1) / 2 * opt.a + opt.r) / opt.r + l;
 			pool->max_l = l;
 			pool->aln_mem = realloc(pool->aln_mem, (tmp + 2) * 24);
 		}
-		// set opt->bw
-		opt.bw = _opt->bw;
-		k = (l * opt.a - 2 * opt.q) / (2 * opt.r + opt.a);
-		i = (l * opt.a - opt.a - opt.t) / opt.r;
-		if (k > i) k = i;
-		if (k < 1) k = 1; // I do not know if k==0 causes troubles
-		opt.bw = _opt->bw < k? _opt->bw : k;
 		// set seq[2] and rseq[2]
 		seq[0] = calloc(l * 4, 1);
 		seq[1] = seq[0] + l;
@@ -639,7 +655,8 @@ static void bsw2_aln_core(bsw2seq_t *_seq, const bsw2opt_t *_opt, const bntseq_t
 			seq[0][i] = c;
 			seq[1][p->l-1-i] = 3 - c;
 		}
-		write_aux(&opt, bns, p->l, seq, pac, buf[x]);
+		update_opt(&opt, _opt, p->l);
+		write_aux(&opt, bns, p->l, seq, pac, buf[x], _seq->seq[x].name);
 		free(seq[0]);
 	}
 	for (x = 0; x < _seq->n; ++x) {

@@ -138,8 +138,8 @@ bwtint_t bwa_sa2pos(const bntseq_t *bns, const bwt_t *bwt, bwtint_t sapos, int l
 	pos_f = bns_depos(bns, bwt_sa(bwt, sapos), &is_rev); // pos_f
 	*strand = !is_rev;
 	/* NB: For gapped alignment, pacpos may not be correct, which will be fixed
-	 * in refine_gapped_core(). This line also determines the way "x" is
-	 * calculated in refine_gapped_core() when (ext < 0 && is_end == 0). */
+	 * in bwa_refine_gapped_core(). This line also determines the way "x" is
+	 * calculated in bwa_refine_gapped_core() when (ext < 0 && is_end == 0). */
 	if (is_rev) pos_f = pos_f + 1 < len? 0 : pos_f - len + 1; // mapped to the forward strand
 	return pos_f; // FIXME: it is possible that pos_f < bns->anns[ref_id].offset
 }
@@ -264,7 +264,7 @@ void bwa_cal_pac_pos(const bntseq_t *bns, const char *prefix, int n_seqs, bwa_se
  * forward strand. This happens when p->pos is calculated by
  * bwa_cal_pac_pos(). is_end_correct==0 if (*pos) gives the correct
  * coordinate. This happens only for color-converted alignment. */
-bwa_cigar_t *refine_gapped_core(bwtint_t l_pac, const ubyte_t *pacseq, int len, const ubyte_t *seq, bwtint_t *_pos,
+bwa_cigar_t *bwa_refine_gapped_core(bwtint_t l_pac, const ubyte_t *pacseq, int len, const ubyte_t *seq, bwtint_t *_pos,
 									int ext, int *n_cigar, int is_end_correct)
 {
 	bwa_cigar_t *cigar = 0;
@@ -441,8 +441,6 @@ void bwa_refine_gapped(const bntseq_t *bns, int n_seqs, bwa_seq_t *seqs, ubyte_t
 		fread(pacseq, 1, bns->l_pac/4+1, bns->fp_pac);
 	} else pacseq = _pacseq;
 
-	// ---------------
-
 #ifdef HAVE_PTHREAD
         if(num_sampe_threads > 1){
 
@@ -480,7 +478,6 @@ void bwa_refine_gapped(const bntseq_t *bns, int n_seqs, bwa_seq_t *seqs, ubyte_t
         }else{
 
 	  bwa_rg_tpx(0, bns, 0, n_seqs, seqs, pacseq, ntbns);
-
 	}
 #else // HAVE_PTHREAD
 	bwa_rg_tpx(0, bns, 0, n_seqs, seqs, pacseq, ntbns);
@@ -772,8 +769,7 @@ void bwa_sai2sam_se_core(const char *prefix, const char *fn_sa, const char *fn_f
 		ntbns = bwa_open_nt(prefix);
 
 	bwa_print_sam_SQ(bns);
-	bwa_print_sam_PG();
-
+	//bwa_print_sam_PG();
 	// set ks
 	ks = bwa_open_reads(opt.mode, fn_fa);
 
@@ -919,8 +915,9 @@ void bwa_sai2sam_se_core(const char *prefix, const char *fn_sa, const char *fn_f
 
 int bwa_sai2sam_se(int argc, char *argv[])
 {
+	extern char *bwa_infer_prefix(const char *hint);
 	int c, n_occ = 3;
-
+	char *prefix;
 	while ((c = getopt(argc, argv, "TXYhn:f:r:t:")) >= 0) {
 		switch (c) {
 		case 't': num_sampe_threads = atoi(optarg); break;
@@ -959,9 +956,12 @@ int bwa_sai2sam_se(int argc, char *argv[])
                 fprintf(stderr, "\n");
 		return 1;
 	}
-
-	bwa_sai2sam_se_core(argv[optind], argv[optind+1], argv[optind+2], n_occ);
-
+	if ((prefix = bwa_infer_prefix(argv[optind])) == 0) {
+		fprintf(stderr, "[%s] fail to locate the index\n", __func__);
+		free(bwa_rg_line); free(bwa_rg_id);
+		return 0;
+	}
+	bwa_sai2sam_se_core(prefix, argv[optind+1], argv[optind+2], n_occ);
 	free(bwa_rg_line); free(bwa_rg_id);
 
 	return 0;

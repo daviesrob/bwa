@@ -7,7 +7,7 @@
 #include <time.h>
 #include "bwatpx.h"
 
-extern bwa_cigar_t *refine_gapped_core(bwtint_t l_pac, const ubyte_t *pacseq, int len, const ubyte_t *seq, bwtint_t *_pos,
+extern bwa_cigar_t *bwa_refine_gapped_core(bwtint_t l_pac, const ubyte_t *pacseq, int len, const ubyte_t *seq, bwtint_t *_pos,
                                        int ext, int *n_cigar, int is_end_correct);
 extern char *bwa_cal_md1(int n_cigar, bwa_cigar_t *cigar, int len, bwtint_t pos, ubyte_t *seq,
                          bwtint_t l_pac, ubyte_t *pacseq, kstring_t *str, int *_nm);
@@ -45,15 +45,15 @@ void bwa_rg_tpx(int iidx, const bntseq_t *bns, int n_seqs1, int n_seqs2,
 			bwt_multi1_t *q = s->multi + j;
 			int n_cigar;
 			if (q->gap == 0) continue;
-			q->cigar = refine_gapped_core(bns->l_pac, pacseq, s->len, q->strand? s->rseq : s->seq, &q->pos,
+			q->cigar = bwa_refine_gapped_core(bns->l_pac, pacseq, s->len, q->strand? s->rseq : s->seq, &q->pos,
 										  (q->strand? 1 : -1) * q->gap, &n_cigar, 1);
 			q->n_cigar = n_cigar;
 		}
 		if (s->type == BWA_TYPE_NO_MATCH || s->type == BWA_TYPE_MATESW || s->n_gapo == 0) continue;
-		s->cigar = refine_gapped_core(bns->l_pac, pacseq, s->len, s->strand? s->rseq : s->seq, &s->pos,
+		s->cigar = bwa_refine_gapped_core(bns->l_pac, pacseq, s->len, s->strand? s->rseq : s->seq, &s->pos,
 									  (s->strand? 1 : -1) * (s->n_gapo + s->n_gape), &s->n_cigar, 1);
 	}
-
+#if 0
 	if (ntbns) { // in color space
 		for (i = n_seqs1; i < n_seqs2; ++i) {
 
@@ -65,18 +65,18 @@ void bwa_rg_tpx(int iidx, const bntseq_t *bns, int n_seqs1, int n_seqs2,
 				int n_cigar;
 				if (q->gap == 0) continue;
 				free(q->cigar);
-				q->cigar = refine_gapped_core(bns->l_pac, ntpac, s->len, q->strand? s->rseq : s->seq, &q->pos,
+				q->cigar = bwa_refine_gapped_core(bns->l_pac, ntpac, s->len, q->strand? s->rseq : s->seq, &q->pos,
 											  (q->strand? 1 : -1) * q->gap, &n_cigar, 0);
 				q->n_cigar = n_cigar;
 			}
 			if (s->type != BWA_TYPE_NO_MATCH && s->cigar) { // update cigar again
 				free(s->cigar);
-				s->cigar = refine_gapped_core(bns->l_pac, ntpac, s->len, s->strand? s->rseq : s->seq, &s->pos,
+				s->cigar = bwa_refine_gapped_core(bns->l_pac, ntpac, s->len, s->strand? s->rseq : s->seq, &s->pos,
 											  (s->strand? 1 : -1) * (s->n_gapo + s->n_gape), &s->n_cigar, 0);
 			}
 		}
 	}
-
+#endif
 	// generate MD tag
 	str = (kstring_t*)calloc(1, sizeof(kstring_t));
 

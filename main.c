@@ -11,12 +11,14 @@
 // -------------------
 
 #ifndef PACKAGE_VERS
-# define PACKAGE_VERS 0.6.1-r104-tpx
+# define PACKAGE_VERS 0.6.2-r126-tpx
 #endif
 
 #define mkstr(s) #s
 #define mkxstr(s) mkstr(s)
-#define PACKAGE_VERSION mkxstr(PACKAGE_VERS)
+#ifndef PACKAGE_VERSION
+#  define PACKAGE_VERSION mkxstr(PACKAGE_VERS)
+#endif
 #ifndef BLDDATE
 # define BLDDATE unknown
 #endif

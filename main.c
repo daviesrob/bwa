@@ -139,5 +139,5 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "[%s] Real time: %.3f sec; CPU: %.3f sec\n", __func__, realtime() - t_real, cputime());
 	}
 
-	return 0;
+	return ret == 0 ? 0 : 1;
 }

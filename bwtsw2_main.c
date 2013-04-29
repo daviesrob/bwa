@@ -37,6 +37,7 @@ int bwa_bwtsw2(int argc, char *argv[])
 		case 'f': xreopen(optarg, "w", stdout); break;
 		case 'I': opt->max_ins = atoi(optarg); break;
 		case 'S': opt->skip_sw = 1; break;
+		default: return 1;
 		}
 	}
 	opt->qr = opt->q + opt->r;
@@ -79,7 +80,7 @@ int bwa_bwtsw2(int argc, char *argv[])
 
 	if ((prefix = bwa_infer_prefix(argv[optind])) == 0) {
 		fprintf(stderr, "[%s] fail to locate the index\n", __func__);
-		return 0;
+		return 1;
 	}
 	strcpy(buf, prefix); target = bwt_restore_bwt(strcat(buf, ".bwt"));
 	strcpy(buf, prefix); bwt_restore_sa(strcat(buf, ".sa"), target);

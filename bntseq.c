@@ -298,6 +298,7 @@ int bwa_fa2pac(int argc, char *argv[])
 	while ((c = getopt(argc, argv, "f")) >= 0) {
 		switch (c) {
 			case 'f': for_only = 1; break;
+		    default: return 1;
 		}
 	}
 	if (argc == optind) {

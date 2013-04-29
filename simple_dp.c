@@ -138,6 +138,7 @@ int bwa_stdsw(int argc, char *argv[])
 		case 'f': g_strand |= 1; break;
 		case 'r': g_strand |= 2; break;
 		case 'p': g_aa = 1; break;
+		default: return 1;
 		}
 	}
 	if (g_strand == 0) g_strand = 3;

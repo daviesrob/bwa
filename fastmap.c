@@ -69,6 +69,7 @@ int main_fastmap(int argc, char *argv[])
 			case 's': print_seq = 1; break;
 			case 'w': min_iwidth = atoi(optarg); break;
 			case 'l': min_len = atoi(optarg); break;
+		    default: return 1;
 		}
 	}
 	if (optind + 1 >= argc) {
